@@ -1,0 +1,53 @@
+# Conduct the microbial traceability analysis using oral cavity as the source
+```R
+species <- read.table("species.rarefied2k.txt", header = TRUE, row.names = 1, sep = "\t")
+meta <- read.table("metadata.more2k.txt", header = TRUE, row.names = 1, sep = "\t")
+
+for (i in 1:(ncol(species)/2)) {
+  species.table <- as.data.frame(t(species))
+  species.table <- cbind("#OTU ID"=row.names(species.table), species.table)
+  write.table(species.table, paste0(colnames(species.table)[i], ".species.table.txt"), quote = FALSE, row.names = FALSE, sep = "\t")
+  meta.table <- data.frame(SourceSink=c("sink", "source"), Env=c(paste0("nasopharynx",i),"oral cavity"))
+  meta.table <- cbind("#SampleID"=c(colnames(species)[i],colnames(species)[i+(ncol(species)/2)]), meta.table)
+  write.table(meta.table, paste0(colnames(species.table)[i], ".meta.table.txt"), quote = FALSE, row.names = FALSE, sep = "\t")
+}
+```
+
+```shell
+filenames=$(ls *.species.table.txt)
+for file in ${filenames};do
+    echo ${file%.species*}  >> sample_list.txt
+done
+
+cat sample_list.txt | while read id
+do
+sourcetracker2 gibbs -i ${id}.species.table.txt -m ${id}.meta.table.txt -o ${id} 
+done
+```
+
+# Conduct the microbial traceability analysis using nasopharynx as the source
+```R
+species <- read.table("species.rarefied2k.txt", header = TRUE, row.names = 1, sep = "\t")
+meta <- read.table("metadata.more2k.txt", header = TRUE, row.names = 1, sep = "\t")
+
+for (i in 1:(ncol(species)/2)) {
+  species.table <- as.data.frame(t(species))
+  species.table <- cbind("#OTU ID"=row.names(species.table), species.table)
+  write.table(species.table, paste0(colnames(species.table)[i], ".species.table.txt"), quote = FALSE, row.names = FALSE, sep = "\t")
+  meta.table <- data.frame(SourceSink=c("source", "sink"), Env=c(paste0("nasopharynx",i),"oral cavity"))
+  meta.table <- cbind("#SampleID"=c(colnames(species)[i],colnames(species)[i+(ncol(species)/2)]), meta.table)
+  write.table(meta.table, paste0(colnames(species.table)[i], ".meta.table.txt"), quote = FALSE, row.names = FALSE, sep = "\t")
+}
+```
+
+```shell
+filenames=$(ls *.species.table.txt)
+for file in ${filenames};do
+    echo ${file%.species*}  >> sample_list.txt
+done
+
+cat sample_list.txt | while read id
+do
+sourcetracker2 gibbs -i ${id}.species.table.txt -m ${id}.meta.table.txt -o ${id} 
+done
+```
