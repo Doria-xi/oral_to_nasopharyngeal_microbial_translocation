@@ -1,0 +1,34 @@
+library(phyloseq)
+library(dplyr)
+
+# Get the ASV table and the taxonomic information -- more2k
+more2k <- readRDS("more2k.rds")
+ASV <- as.data.frame(t(as.matrix(otu_table(more2k))))
+tax <- as.data.frame(as.matrix(tax_table(more2k)))
+
+for (i in 2:ncol(tax)) {
+  tax[, i] <- paste0(tax[, i - 1], tax[, i])
+}
+
+# Merge data from the same taxa -- more2k
+for (i in c("Kingdom", "Phylum", "Class", "Order", "Family"  "Genus", "Species")) {
+    taxa <- cbind(otutab, tax[rownames(tax), i, drop=F]) %>% group_by(i) %>% summarise_all(sum)
+    colnames(taxa)[1] <- i
+    write.table(taxa, paste0(i, ".more2k.txt"), sep = "\t", quote = FALSE, row.names = FALSE)
+}
+
+# Get the ASV table and the taxonomic information -- rarefied2k
+rarefied2k <- readRDS("rarefied2k.rds")
+ASV <- as.data.frame(t(as.matrix(otu_table(rarefied2k))))
+tax <- as.data.frame(as.matrix(tax_table(rarefied2k)))
+
+for (i in 2:ncol(tax)) {
+  tax[, i] <- paste0(tax[, i - 1], tax[, i])
+}
+
+# Merge data from the same taxa -- rarefied2k
+for (i in c("Kingdom", "Phylum", "Class", "Order", "Family"  "Genus", "Species")) {
+    taxa <- cbind(otutab, tax[rownames(tax), i, drop=F]) %>% group_by(i) %>% summarise_all(sum)
+    colnames(taxa)[1] <- i
+    write.table(taxa, paste0(i, ".rarefied2k.txt"), sep = "\t", quote = FALSE, row.names = FALSE)
+}
