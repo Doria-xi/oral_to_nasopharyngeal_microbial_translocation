@@ -1,0 +1,11 @@
+# Convert the pacbio file from subreads.bam to ccs.bam
+ccs wzhh.subreads.bam wzhh.ccs.bam --min-passes 3 --min-length 500
+
+# Convert the pacbio file from bam to fastq
+bam2fastq -o wzhh wzhh.ccs wzhh.ccs.bam
+
+# Label each sequence according to the barcode information
+lima --ccs wzhh.ccs.fastq barcodes.fasta wzhh.demultiplex.fastq
+
+# Perform the sample segmentation based on the barcode information
+python split_pacbio libraries.py
