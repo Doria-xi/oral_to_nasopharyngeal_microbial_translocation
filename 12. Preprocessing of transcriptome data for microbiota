@@ -1,0 +1,38 @@
+# Quality control and filtering of sequencing data & remove the host's reads
+kneaddata -t 40 \
+ --input sample_1.fq.gz \
+ --input sample_2.fq.gz \
+ --trimmomatic Trimmomatic-0.38 \
+ --trimmomatic-options "ILLUMINACLIP:TruSeq3-PE.fa:2:30:5 LEADING:3  TRAILING:10 SLIDINGWINDOW:5:20 MINLEN:50" \
+ --bowtie2-options "--sensitive --dovetail" \
+ --reference-db hg38 \
+ --output output \
+ --output-prefix sample \
+ --remove-intermediate-output
+
+# Remove the ribosome sequence
+cat sample_paired_1.fastq sample_paired_2.fastq sample_unmatched_1.fastq sample_unmatched_2.fastq > sample_rmhost.fastq
+sortmerna -a 40 \
+  --ref silva-bac-16s-id90.fasta,silva-bac-16s-db \
+  --reads sample_rmhost.fastq \
+  --aligned sample.ribosomes \
+  --other sample.ribodepleted --fastx \
+  --log -v
+
+# taxonomy assigned
+kraken2 \
+ --db kraken_db \
+ --threads 40 --use-mpa-style \
+ --report sample.report \
+ --output sample.output  \
+ sample.ribodepleted.fastq
+
+# Sorting the result of Kraken2
+bracken -d kraken_db -r 150 -l S -t 5 \
+  -i sample.report \
+  -o sample.species \
+  -w sample.species.report
+
+python kreport2mpa.py \
+  -r sample.species.report \
+  -o sample.species.new.report
