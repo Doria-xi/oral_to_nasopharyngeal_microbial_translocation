@@ -1,0 +1,71 @@
+library(phyloseq)
+library(decontam)
+
+# Build the phyloseq object
+seq <- readRDS("seqtab.rds")
+meta <- read.table("metadata.csv", sep=",", row.names = 1, header=TRUE, na.strings="NA")
+tax <- read.table("TaxonomyTable.txt", sep = "\t", header = TRUE)
+
+phyloseq <- phyloseq(otu_table(seq, taxa_are_rows=FALSE), sample_data(meta), tax_table(as.matrix(tax)))
+
+# Data filtering
+phyloseq <- subset_taxa(phyloseq, Kingdom == "Bacteria")
+phyloseq <- subset_taxa(phyloseq, Phylum != "NA")
+M_or_C <- read.table('Mitochondria_or_Chloroplast.txt',header = T,sep = "\t")
+phyloseq <- prune_taxa(!M_or_C$Mitochondria_or_Chloroplast, phyloseq)
+
+# Select nasopharyngeal samples -- for decontam
+NP <- prune_samples(sample_data(phyloseq)$Position == "nasopharynx", phyloseq)
+
+contamdf.freq.NP <- isContaminant(NP, method="frequency", conc="quant_reading")
+contamdf.prev.NP <- isContaminant(NP, method="prevalence", neg="Sample_or_Control", threshold=0.5)
+
+contamdf.NP <- read.table("contam.NP.txt", sep = "\t", header = TRUE)
+NP <- prune_taxa(!contamdf.NP$contamdf, NP)
+
+NP <- prune_samples((sample_data(NP)$Group == "ctrl" | sample_data(phyloseq.noncontam.NP)$Group == "NPC"), NP)
+
+NP <- prune_taxa(taxa_sums(NP) > 10, NP)
+
+seqdepth <- apply(X = otu_table(NP, taxa_are_rows=FALSE), MARGIN = 1, FUN = function(x){sum(x)})
+seqdepth <- data.frame(seqDepth = seqdepth, sample_data(NP))
+keepsample <- rownames(seqdepth)[(seqdepth$seqDepth >= 2000)]
+NP.more2k <- prune_samples(keepsample, NP)
+
+NP.rarefied2k <- rarefy_even_depth(NP, sample.size = 2133, rngseed = TRUE, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+
+# Select oral samples -- for decontam
+S <- prune_samples(sample_data(phyloseq)$Position == "oral cavity", phyloseq)
+
+contamdf.freq.S <- isContaminant(S, method="frequency", conc="quant_reading")
+contamdf.prev.S <- isContaminant(S, method="prevalence", neg="Sample_or_Control", threshold=0.5)
+
+contamdf.S <- read.table("contam.S.txt", sep = "\t", header = TRUE)
+S <- prune_taxa(!contamdf.S$contamdf, S)
+
+S <- prune_samples((sample_data(S)$Group == "ctrl" | sample_data(phyloseq.noncontam.S)$Group == "NPC"), S)
+
+S <- prune_taxa(taxa_sums(S) > 10, S)
+
+seqdepth <- apply(X = otu_table(S, taxa_are_rows=FALSE), MARGIN = 1, FUN = function(x){sum(x)})
+seqdepth <- data.frame(seqDepth = seqdepth, sample_data(S))
+keepsample <- rownames(seqdepth)[(seqdepth$seqDepth >= 2000)]
+S.more2k <- prune_samples(keepsample, S)
+
+S.rarefied2k <- rarefy_even_depth(S, sample.size = 2133, rngseed = TRUE, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+
+# Merge the nasopharyngeal and oral samples
+more2k <- merge_phyloseq(NP.more2k, S.more2k)
+rarefied2k <- merge_phyloseq(NP.rarefied2k, S.rarefied2k)
+saveRDS(more2k, "more2k.rds")
+saveRDS(rarefied2k, "rarefied2k.rds")
+
+meta.more2k <- as.data.frame(as.matrix(sample_data(more2k)))
+meta.rarefied2k <- as.data.frame(as.matrix(sample_data(rarefied2k)))
+write.table(meta.more2k, "meta.more2k.txt", sep = "\t", header = TRUE, quote = FALSE)
+write.table(meta.rarefied2k, "meta.rarefied2k.txt", sep = "\t", header = TRUE, quote = FALSE)
+
+ASV.more2k <- as.data.frame(as.matrix(otu_table(more2k)))
+ASV.rarefied2k <- as.data.frame(as.matrix(otu_table(rarefied2k)))
+write.table(ASV.more2k, "ASV.more2k.txt", sep = "\t", header = TRUE, quote = FALSE)
+write.table(ASV.rarefied2k, "ASV.rarefied2k.txt", sep = "\t", header = TRUE, quote = FALSE)
