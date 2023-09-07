@@ -1,0 +1,17 @@
+# Run co-abundance network analysis by SparCC
+mkdir basis_corr
+python SparCC.py data.txt -cor_file=basis_corr/result_cor_sparcc.txt  --cov_file=basis_corr/result_cov_sparcc.txt
+
+mkdir -p pvals
+python MakeBootstraps.py -n 1000  data.txt  -t permutation_#.txt  -p pvals/
+
+mkdir -p Bootstraps
+for j in `seq 0 99`; do
+    for i in `seq 0 9`; do 
+        c=`expr $j \* 10 + $i`
+        python SparCC.py pvals/permutation_$c.txt -c Bootstraps/simulated_cor_$c.txt >> sparcc.log &
+    done
+    wait
+done
+
+python PseudoPvals.py -t 'two_sided' basis_corr/result_cor_sparcc.txt Bootstraps/simulated_cor_#.txt 1000 -o sparcc_pvals_two_sided.txt >> sparcc.log
