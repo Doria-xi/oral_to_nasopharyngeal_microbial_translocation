@@ -1,0 +1,38 @@
+# Quality control of sequencing data
+fastqc -o output -f fastq *.fq.gz
+
+# Filtering rawdata using Trimmomatic
+trimmomatic PE -phred33 sample_clean_R1.fastq.gz sample_clean_R2.fastq.gz sample_trimed_R1.fastq.gz sample_unpaired_R1.fastq.gz sample_trimed_R2.fastq.gz sample_unpaired_R2.fastq.gz ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+
+# Aligning with reference genome
+## Fusobacterium_nucleatum
+bowtie2-build Fusobacterium_nucleatum_subsp_nucleatum_ATCC_25586.fasta F.nucleatum_ATCC_25586
+bowtie2 -p 6 -x F.nucleatum_ATCC_25586 -1 sample_trimed_R1.fastq.gz -2 sample_trimed_R2.fastq.gz -S sample.sam
+samtools view -bS sample.sam > sample.bam
+samtools sort sample.bam -o sample_sorted.bam
+samtools index sample_sorted.bam
+
+## Prevotella_intermedia
+bowtie2-build Prevotella_intermedia_ATCC_25611.fasta P.intermedia_ATCC_25611
+bowtie2 -p 6 -x P.intermedia_ATCC_25611 -1 sample_trimed_R1.fastq.gz -2 sample_trimed_R2.fastq.gz -S sample.sam
+samtools view -bS sample.sam > sample.bam
+samtools sort sample.bam -o sample_sorted.bam
+samtools index sample_sorted.bam
+
+# ANI calculated by inStrain
+## Fusobacterium_nucleatum
+inStrain profile sample_sorted.bam Fusobacterium_nucleatum_subsp_nucleatum_ATCC_25586.fasta -o sample.IS -p 6
+inStrain compare -i sample.1.IS sample.2.IS -p 6 -o sample.1_sample.2.IS.COMPARE
+
+## Prevotella_intermedia
+inStrain profile sample_sorted.bam Prevotella_intermedia_ATCC_25611.fasta -o sample.IS -p 6
+inStrain compare -i sample.1.IS sample.2.IS -p 6 -o sample.1_sample.2.IS.COMPARE
+
+# Genome assemble
+spades.py --careful -1 sample_trimed_R1.fastq.gz -2 sample_trimed_R2.fastq.gz -o sample
+
+# Gene annotation
+prokka --outdir sample_ann --prefix sample sample.fasta
+
+# Core genes and phylogenetic analysis
+roary -e --mafft -p 8 -i 90 -cd 95 sample_ann/*.gff -f sample
