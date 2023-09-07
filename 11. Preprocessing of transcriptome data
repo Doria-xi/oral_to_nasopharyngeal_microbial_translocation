@@ -1,0 +1,22 @@
+# Quality control of sequencing data
+fastqc -o output -f fastq *.fq.gz
+
+# Filtering rawdata using Trimmomatic
+trimmomatic PE -phred33 sample_1.fq.gz sample_2.fq.gz -baseout sample_filter.fq.gz ILLUMINACLIP:TruSeq3-PE.fa:2:30:5 LEADING:3  TRAILING:10 SLIDINGWINDOW:5:20 MINLEN:50
+
+# Aligning with reference genome
+hisat2 -p 40 -t -x hg38 \
+-1 sample_filter_1P.fq.gz \
+-2 sample_filter_2P.fq.gz \
+-S sample.sam
+
+samtools view -bS sample.sam > sample.bam;
+samtools sort sample.bam -o sample_sorted.bam;
+samtools index sample_sorted.bam
+
+# Quantification of gene expression
+htseq-count -f bam -r pos -s reverse -a 10 -t gene -i gene_id --additional-attr=gene_type \
+--additional-attr=gene_name \
+-m union sample_sorted.bam \
+hg38.gtf \
+> sample.htseq.count
