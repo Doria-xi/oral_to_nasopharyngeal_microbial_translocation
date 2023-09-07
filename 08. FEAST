@@ -1,0 +1,24 @@
+library(FEAST)
+
+species <- read.table("species.rarefied2k.txt", header = TRUE, row.names = 1, sep = "\t")
+meta <- read.table("metadata.more2k.txt", header = TRUE, row.names = 1, sep = "\t")
+
+# Conduct the microbial traceability analysis using oral cavity as the source
+meta.oral <- data.frame(Env = c(paste0("nasopharynx", 1:(nrow(meta)/2)),paste0("oral cavity", 1:(nrow(meta)/2))),
+                        SourceSink = rep(c("Sink","Source"),each = (nrow(meta)/2)),
+                        id = c(1:(nrow(meta)/2), 1:(nrow(meta)/2)))
+
+row.names(meta.oral) <- row.names(species)
+meta.oral <- meta.oral[order(meta.oral[,3]),]
+
+FEAST <- FEAST(C = species, metadata = meta.oral, different_sources_flag = 1, dir_path = "FEAST_output", outfile="oral", COVERAGE = 10000, EM_iterations = 1000)
+
+# Conduct the microbial traceability analysis using nasopharynx as the source
+meta.np <- data.frame(Env = c(paste0("oral cavity", 1:(nrow(meta)/2)),paste0("nasopharynx", 1:(nrow(meta)/2))),
+                      SourceSink = rep(c("Sink","Source"),each = (nrow(meta)/2)),
+                      id = c(1:(nrow(meta)/2), 1:(nrow(meta)/2)))
+
+row.names(meta.np) <- row.names(species)
+meta.np <- meta.np[order(meta.np[,3]),]
+
+FEAST <- FEAST(C = species, metadata = meta.np, different_sources_flag = 1, dir_path = "FEAST_output", outfile="np", COVERAGE = 10000, EM_iterations = 1000)
