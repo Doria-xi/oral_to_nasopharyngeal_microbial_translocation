@@ -1,0 +1,33 @@
+library(phyloseq)
+library(vegan)
+
+# Calculate the rarefaction curve
+# shell script
+usearch10 -alpha_div_rare ASVtable.txt -output ASVtable.rare.txt -method without_replacement
+
+# Calculate the alpha diversity
+species <- read.table("species.rarefied2k.txt", header = TRUE, row.names = 1, sep = "\t")
+meta <- read.table("metadata.more2k.txt", header = TRUE, row.names = 1, sep = "\t")
+phyloseq <- phyloseq(otu_table(species, taxa_are_rows = TRUE), sample_data(meta))
+
+alpha <- estimate_richness(phyloseq, split = TRUE, measures = "Shannon")
+
+# Calculate the beta diversity -- both NPC & control groups
+species <- read.table("species.rarefied2k.txt", header = TRUE, row.names = 1, sep = "\t")
+meta <- read.table("metadata.more2k.txt", header = TRUE, row.names = 1, sep = "\t")
+phyloseq <- phyloseq(otu_table(species, taxa_are_rows = TRUE), sample_data(meta))
+
+bray <- vegdist(t(as.matrix(phyloseq)),"bray")
+
+pcoa <- as.data.frame(cmdscale(bray, k=3, eig=T)$point)
+
+# Calculate the beta diversity -- NPC group
+species <- read.table("species.rarefied2k.txt", header = TRUE, row.names = 1, sep = "\t")
+meta <- read.table("metadata.more2k.txt", header = TRUE, row.names = 1, sep = "\t")
+phyloseq <- phyloseq(otu_table(species, taxa_are_rows = TRUE), sample_data(meta))
+NP <- prune_samples(sample_data(phyloseq)$SamplingPos == "nasopharynx", phyloseq)
+
+bray <- vegdist(t(as.matrix(NP)),"bray")
+adonis2(NP ~ sample_data(NP)$Group + sample_data(NP)$Age + sample_data(phyloseq_Smoking)$Sex + sample_data(NP)$Smoking + sample_data(NP)$Caries + sample_data(NP)$Disease)
+
+pcoa <- as.data.frame(cmdscale(bray, k=3, eig=T)$point)
