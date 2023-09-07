@@ -1,0 +1,16 @@
+library(phyloseq)
+library(ANCOMBC)
+
+# Build the phyloseq object
+more2k <- readRDS("more2k.rds")
+taxa <- read.table("species.more2k.txt", header = TRUE, row.names = 1, sep = "\t")
+taxa <- taxa[!rownames(taxa) %in% grep("[NA]$", row.names(taxa), value = TRUE),]
+phyloseq <- phyloseq(otu_table(taxa, taxa_are_rows = TRUE), sample_data(more2k))
+
+# Select the nasopharyngeal samples for ANCOMBC analysis
+NP <- prune_samples(sample_data(phyloseq)$SamplingPos == "nasopharynx", phyloseq)
+out <- ancombc(phyloseq = NP, formula = "Group + Sex + Age + Smoking + Alcohol + Caries + Disease", p_adj_method = "fdr", group = "Group", zero_cut = 0.95, max_iter = 1000, alpha = 0.05)
+
+# Select the oral samples for ANCOMBC analysis
+NP <- prune_samples(sample_data(phyloseq)$SamplingPos == "oral", phyloseq)
+out <- ancombc(phyloseq = NP, formula = "Group + Sex + Age + Smoking + Alcohol + Caries + Disease", p_adj_method = "fdr", group = "Group", zero_cut = 0.95, max_iter = 1000, alpha = 0.05)
