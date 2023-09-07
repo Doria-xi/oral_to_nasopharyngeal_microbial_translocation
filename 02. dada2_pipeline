@@ -1,0 +1,67 @@
+library(dada2)
+
+## For Pacbio data
+# Define the path of sequencing file and extract the information
+fns <- list.files("demultiplex", pattern=".fastq", full.names=TRUE)
+
+F27 <- "AGRGTTYGATYMTGGCTCAG"
+R1492 <- "RGYTACCTTGTTACGACTT"
+rc <- dada2:::rc
+
+# Quality inspection for the sequencing file
+plotQualityProfile(fns[1:4]) 
+
+# Data filtering
+nops <- file.path("noprimers"), basename(fns)
+removePrimers(fns, nops, primer.fwd=F27, primer.rev=dada2:::rc(R1492), orient=TRUE, max.mismatch=3)
+
+filts <- paste0("filtered", basename(fns))
+filterAndTrim(nops, filts, minLen=1000, maxLen=1600, rm.phix=FALSE, maxN=0, multithread = TRUE)
+
+drp <- derepFastq(filts, verbose=TRUE)
+err <- learnErrors(drp, BAND_SIZE=32, multithread=TRUE, errorEstimationFunction=dada2:::PacBioErrfun)
+dd <- dada(drp, err=err, BAND_SIZE=32, multithread=TRUE)
+seqtab <- makeSequenceTable(dd)
+
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+
+saveRDS(seqtab.nochim, "seqtab.rds")
+
+# Taxonomy assigned
+tax <- assignTaxonomy(seqtab.nochim, "silva_nr99_v138_wSpecies_train_set.fa.gz", multithread=TRUE)
+write.table(tax,paste0(path.file,"TaxonomyTable.txt"),sep="\t")
+
+## For Illumina data
+# Define the path of sequencing file and extract the information
+fnFs <- list.files("demultiplex", pattern="_R1.fastq", full.names=TRUE)
+fnRs <- list.files("demultiplex", pattern="_R2.fastq", full.names=TRUE)
+
+# Quality inspection for the sequencing file
+plotQualityProfile(fnFs[1:4]) 
+plotQualityProfile(fnRs[1:4]) 
+
+# Data filtering
+filtFs <- file.path("filtered", paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path("filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+
+filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(220,200),trimLeft=c(31,32),
+              maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+              compress=TRUE, multithread=TRUE)
+
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+
+dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
+
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+
+seqtab <- makeSequenceTable(mergers)
+
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+
+saveRDS(seqtab.nochim, "seqtab.rds")
+
+# Taxonomy assigned
+tax <- assignTaxonomy(seqtab.nochim, "silva_nr99_v138_wSpecies_train_set.fa.gz", multithread=TRUE)
+write.table(tax,paste0(path.file,"TaxonomyTable.txt"),sep="\t")
